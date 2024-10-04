@@ -1,4 +1,8 @@
 .PHONY: all
+
+clean:
+	rm ssa_results.csv *.norm.csv ssa_plot.png
+
 all: ssa_plot.png
 
 ssa_results.csv: ssa_brench.toml
