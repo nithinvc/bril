@@ -1,10 +1,10 @@
 from collections import OrderedDict
 
-from .types import TERMINATOR_OPS
+from .types import TERMINATOR_OPS, ControlFlowGraph
 from .utils import flatten, fresh
 
 
-def construct_cfg(instrs):
+def construct_cfg(instrs) -> ControlFlowGraph:
     """Given a list of Bril instructions, generates a valid control flow graph.
     Returns a tuple of the block map, predecessors, and successors.
         - Block map is ordered such that iterating the keys will yield the order in which blocks were generated.
@@ -19,7 +19,7 @@ def construct_cfg(instrs):
     add_entry(block_map)
     # Generate the predecessors and successors
     preds, succs = edges(block_map)
-    return block_map, preds, succs
+    return ControlFlowGraph(block_map=block_map, predecessors=preds, successors=succs)
 
 
 def generate_block_map(blocks):
@@ -121,10 +121,11 @@ def edges(blocks):
     return preds, succs
 
 
-def reassemble(blocks):
+def reassemble(cfg: ControlFlowGraph):
     """Flatten a CFG into an instruction list."""
     # This could optimize slightly by opportunistically eliminating
     # `jmp .next` and `ret` terminators where it is allowed.
+    blocks = cfg.block_map
     instrs = []
     for name, block in blocks.items():
         instrs.append({"label": name})
