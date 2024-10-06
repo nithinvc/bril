@@ -45,6 +45,8 @@ def constant_folding_and_propogation(instrs):
                     # dest is the same
                     # type is the same
                     del instr["args"]  # No long have args in the const instruction case
+                    # Since we now know the resolved dest, we restore
+                    out_fact[instr["dest"]] = resolved_output
             else:
                 # We are in the case of an effect operation or conditional
                 # Do nothing
@@ -72,7 +74,11 @@ def constant_folding_and_propogation(instrs):
         mode="forward",
     )
 
-    # We can just return the flattened instructions from the block_map since we are modifiying the instructions in place (?)
+    # We now know all constants defined before and after a block
+    # We propogate
+    cfg = control_flow_graph.construct_cfg(instrs, block_only=True)
+    for block_key, block in cfg.block_map.items():
+        transfer_fn(in_facts[block_key], block)
 
     return in_facts, out_facts, control_flow_graph.reassemble(cfg)
 

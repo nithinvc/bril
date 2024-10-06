@@ -4,8 +4,10 @@ from .types import TERMINATOR_OPS, ControlFlowGraph
 from .utils import flatten, fresh
 
 
-def construct_cfg(instrs) -> ControlFlowGraph:
+def construct_cfg(instrs, block_only: bool = False) -> ControlFlowGraph:
     """Given a list of Bril instructions, generates a valid control flow graph.
+    block_only (Optional, Bool):
+        return only the blocks with labels. This ensures we don't add extra instructions
     Returns a tuple of the block map, predecessors, and successors.
         - Block map is ordered such that iterating the keys will yield the order in which blocks were generated.
     """
@@ -13,6 +15,8 @@ def construct_cfg(instrs) -> ControlFlowGraph:
     blocks = form_blocks(instrs)
     # Generate the block mapping
     block_map = generate_block_map(blocks)
+    if block_only:
+        return ControlFlowGraph(block_map=block_map, predecessors=None, successors=None)
     # Add terminators to all blocks
     add_terminators(block_map)
     # Ensure that there is an entry to the CFG
