@@ -5,6 +5,8 @@ clean:
 
 all: ssa_plot.png
 
+results_only: ssa_results.norm.csv
+
 ssa_results.csv: ssa_brench.toml
 	brench $^ > $@
 
