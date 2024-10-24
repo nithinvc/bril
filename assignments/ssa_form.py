@@ -1,16 +1,19 @@
 import argparse
+from collections import defaultdict
 
 from lib.control_flow_graph import construct_cfg
-from lib.utils import emit_bril, fresh, load_bril
+from lib.utils import emit_bril, load_bril
 
 
 def to_ssa(instrs):
     # Step 1: Construct the control flow graph
     cfg = construct_cfg(instrs)
 
-    # Step 2: Initialize structures for tracking variable definitions and uses
+    # Step 2: Initialize stacks for renaming
+    var_stack = defaultdict(list)
     var_defs = {}
     var_uses = {}
+    var_version = defaultdict(list)
 
     for block_label, block in cfg.block_map.items():
         for instr in block:
@@ -23,20 +26,20 @@ def to_ssa(instrs):
     # Step 3: Perform dominance analysis
     dominator_tree = compute_dominators(cfg)
 
-    # Step 4: Insert φ functions with proper handling for all variables, ensuring correct number of arguments and versioning
-    insert_phi_functions(cfg, var_defs, dominator_tree)
+    # Step 4: Insert φ functions based on dominance frontiers and initialize variable stacks
+    insert_phi_functions(cfg, var_defs, dominator_tree, var_stack)
 
-    # Step 5: Rename variables and ensure consistent versioning across all paths
-    renamed_instrs = rename_variables_with_versioning(cfg, var_defs, var_uses)
+    # Step 5: Rename variables with a stack-based renaming strategy
+    renamed_instrs = rename_variables_with_stacks(cfg, var_defs, var_uses, var_stack)
 
     # Step 6: Reformat the instructions for emission
     return renamed_instrs, cfg
 
 
-def insert_phi_functions(cfg, var_defs, dominator_tree):
+def insert_phi_functions(cfg, var_defs, dominator_tree, var_stack):
     """
-    Insert φ functions at control flow join points.
-    Ensure the number of φ function arguments matches the number of predecessor blocks.
+    Insert φ functions at control flow join points, based on dominance frontiers.
+    Also, initialize the variable stack with initial values for each block.
     """
     phi_blocks = {}
 
@@ -57,7 +60,7 @@ def insert_phi_functions(cfg, var_defs, dominator_tree):
                         phi_blocks[successor].append(var)
                         work_list.append(successor)
 
-    # Insert the φ functions into the control flow graph
+    # Insert the φ functions into the control flow graph and initialize stacks
     for block, phi_vars in phi_blocks.items():
         phi_instrs = []
         for var in phi_vars:
@@ -73,11 +76,10 @@ def insert_phi_functions(cfg, var_defs, dominator_tree):
                     )  # Variable is undefined on this path
                 phi_instr["labels"].append(pred)  # Ensure correct labeling
 
-            # Check that the number of args matches the number of predecessors
-            if len(phi_instr["args"]) != len(cfg.predecessors[block]):
-                raise ValueError(
-                    f"Phi node has unequal numbers of labels and args in block {block}"
-                )
+            # Initialize the variable stack
+            if var not in var_stack:
+                var_stack[var] = []
+            var_stack[var].append(phi_instr["dest"])
 
             phi_instrs.append(phi_instr)
         cfg.block_map[block] = phi_instrs + cfg.block_map[block]
@@ -118,12 +120,11 @@ def compute_dominators(cfg):
     return dominator_tree
 
 
-def rename_variables_with_versioning(cfg, var_defs, var_uses):
+def rename_variables_with_stacks(cfg, var_defs, var_uses, var_stack):
     """
-    Rename variables to ensure each variable has a unique versioned name in SSA form (e.g., res.0, res.1).
+    Rename variables using a stack-based renaming strategy, ensuring proper versioning and SSA form.
     """
     renamed_instrs = []
-    var_version = {}
 
     for block_label, block in cfg.block_map.items():
         new_block = []
@@ -131,19 +132,15 @@ def rename_variables_with_versioning(cfg, var_defs, var_uses):
             # Rename defined variables
             if "dest" in instr:
                 old_name = instr["dest"]
-                new_name = fresh(old_name, var_version)
-                instr["dest"] = (
-                    f"{new_name}.{len(var_version[old_name]) - 1}"  # Add versioning
-                )
-                var_version[old_name].append(instr["dest"])
+                if old_name in var_stack:
+                    instr["dest"] = f"{old_name}.{len(var_stack[old_name]) - 1}"
+                var_stack[old_name].append(instr["dest"])
             # Rename used variables
             if "args" in instr:
                 new_args = []
                 for arg in instr["args"]:
-                    if arg in var_version:
-                        new_args.append(
-                            f"{arg}.{len(var_version[arg]) - 1}"
-                        )  # Use the latest version
+                    if arg in var_stack:
+                        new_args.append(f"{arg}.{len(var_stack[arg]) - 1}")
                     else:
                         new_args.append("__undefined" if arg == "undefined" else arg)
                 instr["args"] = new_args
