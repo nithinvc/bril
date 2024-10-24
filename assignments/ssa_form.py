@@ -23,21 +23,20 @@ def to_ssa(instrs):
     # Step 3: Perform dominance analysis
     dominator_tree = compute_dominators(cfg)
 
-    # Step 4: Insert φ functions with undefined handling
+    # Step 4: Insert φ functions with proper handling for all variables, ensuring correct number of arguments and versioning
     insert_phi_functions(cfg, var_defs, dominator_tree)
 
-    # Step 5: Rename variables
-    renamed_instrs = rename_variables(cfg, var_defs, var_uses)
+    # Step 5: Rename variables and ensure consistent versioning across all paths
+    renamed_instrs = rename_variables_with_versioning(cfg, var_defs, var_uses)
 
-    # Step 6: Emit SSA-transformed program
+    # Step 6: Reformat the instructions for emission
     return renamed_instrs, cfg
 
 
 def insert_phi_functions(cfg, var_defs, dominator_tree):
     """
     Insert φ functions at control flow join points.
-    We insert φ functions at join points where a variable is defined along multiple paths.
-    If a variable is not defined on a particular path, we insert `__undefined`.
+    Ensure the number of φ function arguments matches the number of predecessor blocks.
     """
     phi_blocks = {}
 
@@ -48,7 +47,6 @@ def insert_phi_functions(cfg, var_defs, dominator_tree):
 
         while work_list:
             block = work_list.pop()
-            doms = dominator_tree[block]  # Get all nodes dominated by the current block
 
             # Check the successors of this block for join points
             for successor in cfg.successors[block]:
@@ -63,8 +61,7 @@ def insert_phi_functions(cfg, var_defs, dominator_tree):
     for block, phi_vars in phi_blocks.items():
         phi_instrs = []
         for var in phi_vars:
-            # Initialize the φ function with `__undefined` arguments by default
-            phi_instr = {"op": "phi", "dest": var, "args": []}
+            phi_instr = {"op": "phi", "dest": var, "args": [], "labels": []}
             for pred in cfg.predecessors[block]:
                 if pred in var_defs and any(var == d["dest"] for _, d in var_defs[var]):
                     phi_instr["args"].append(
@@ -74,6 +71,14 @@ def insert_phi_functions(cfg, var_defs, dominator_tree):
                     phi_instr["args"].append(
                         "__undefined"
                     )  # Variable is undefined on this path
+                phi_instr["labels"].append(pred)  # Ensure correct labeling
+
+            # Check that the number of args matches the number of predecessors
+            if len(phi_instr["args"]) != len(cfg.predecessors[block]):
+                raise ValueError(
+                    f"Phi node has unequal numbers of labels and args in block {block}"
+                )
+
             phi_instrs.append(phi_instr)
         cfg.block_map[block] = phi_instrs + cfg.block_map[block]
 
@@ -113,9 +118,9 @@ def compute_dominators(cfg):
     return dominator_tree
 
 
-def rename_variables(cfg, var_defs, var_uses):
+def rename_variables_with_versioning(cfg, var_defs, var_uses):
     """
-    Rename variables to ensure each variable has a unique name in SSA form.
+    Rename variables to ensure each variable has a unique versioned name in SSA form (e.g., res.0, res.1).
     """
     renamed_instrs = []
     var_version = {}
@@ -127,16 +132,20 @@ def rename_variables(cfg, var_defs, var_uses):
             if "dest" in instr:
                 old_name = instr["dest"]
                 new_name = fresh(old_name, var_version)
-                instr["dest"] = new_name
-                var_version[old_name] = new_name
+                instr["dest"] = (
+                    f"{new_name}.{len(var_version[old_name]) - 1}"  # Add versioning
+                )
+                var_version[old_name].append(instr["dest"])
             # Rename used variables
             if "args" in instr:
                 new_args = []
                 for arg in instr["args"]:
                     if arg in var_version:
-                        new_args.append(var_version[arg])
+                        new_args.append(
+                            f"{arg}.{len(var_version[arg]) - 1}"
+                        )  # Use the latest version
                     else:
-                        new_args.append(arg)  # No renaming if variable not seen yet
+                        new_args.append("__undefined" if arg == "undefined" else arg)
                 instr["args"] = new_args
             new_block.append(instr)
         renamed_instrs.append((block_label, new_block))
