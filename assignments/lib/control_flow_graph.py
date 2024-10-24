@@ -15,13 +15,14 @@ def construct_cfg(instrs, block_only: bool = False) -> ControlFlowGraph:
     blocks = form_blocks(instrs)
     # Generate the block mapping
     block_map = generate_block_map(blocks)
-    if block_only:
-        return ControlFlowGraph(block_map=block_map, predecessors=None, successors=None)
     # Add terminators to all blocks
     add_terminators(block_map)
     # Ensure that there is an entry to the CFG
     add_entry(block_map)
+    if block_only:
+        return ControlFlowGraph(block_map=block_map, predecessors=None, successors=None)
     # Generate the predecessors and successors
+
     preds, succs = edges(block_map)
     return ControlFlowGraph(block_map=block_map, predecessors=preds, successors=succs)
 
@@ -119,6 +120,8 @@ def edges(blocks):
     preds = {name: [] for name in blocks}
     succs = {name: [] for name in blocks}
     for name, block in blocks.items():
+        if len(block) == 0:
+            continue  # Empty block
         for succ in successors(block[-1]):
             succs[name].append(succ)
             preds[succ].append(name)
