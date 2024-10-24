@@ -1,15 +1,13 @@
 import argparse
 import pdb  # noqa
-import sys
 from typing import Dict, Iterator
 
-# Get lib
-sys.path.append("../../assignments/")
-from lib import utils  # noqa
+from lib import (
+    control_flow_graph,
+    utils,  # noqa
+)
+from lib.dataflow import dump_df_turnt, solve_dataflow
 from lib.types import RESOLVABLE_OPS
-from lib import control_flow_graph
-
-from dataflow import solve_dataflow, dump_df_turnt
 
 
 def resolve_op(op, args):

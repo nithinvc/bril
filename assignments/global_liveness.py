@@ -1,12 +1,9 @@
 import argparse
 import pdb  # noqa
-import sys
 from typing import Dict, Iterator, Set  # noqa
 
-# Get lib
-sys.path.append("../../assignments/")
-from dataflow import dump_df_turnt, solve_dataflow  # noqa
 from lib import control_flow_graph, utils
+from lib.dataflow import dump_df_turnt, solve_dataflow  # noqa
 
 
 def deadcode_elimination_liveness(in_facts: Set, out_facts: Set, block):
