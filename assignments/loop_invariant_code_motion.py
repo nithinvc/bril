@@ -1,174 +1,184 @@
-import argparse
+from typing import Dict, List, Set, Tuple
 
-from lib.control_flow_graph import construct_cfg
-from lib.types import TERMINATOR_OPS
-from lib.utils import emit_bril, flatten, load_bril
-from ssa_form import compute_dominators
+from lib.control_flow_graph import construct_cfg, reassemble
+from lib.types import ControlFlowGraph
+from lib.utils import emit_bril, load_bril
 
-
-def loop_invariant_code_motion(instrs):
-    # Step 1: Construct the control flow graph
-    cfg = construct_cfg(instrs)
-
-    # Step 2: Identify loops in the CFG
-    natural_loops = find_loops(cfg)
-
-    # Step 3: For each loop, find invariant instructions and move them outside the loop
-    for loop_header, loop_blocks in natural_loops.items():
-        loop_invariants = find_loop_invariants(cfg, loop_header, loop_blocks)
-        hoist_invariants(cfg, loop_header, loop_invariants)
-
-    # Step 4: Emit the transformed program
-    return to_instr_list(cfg)
+# Define side-effect operations that should not be moved
+SIDE_EFFECT_OPS = {"print", "call", "store", "ret"}
 
 
-def find_loops(cfg):
-    """
-    Identify natural loops in the control flow graph, ensuring only single-entry natural loops are considered.
-    Filter out non-loop back edges (e.g., those leading to termination blocks like .end).
-    """
-    loops = {}
-    dominators = compute_dominators(cfg)
+def compute_dominators(cfg: ControlFlowGraph) -> Dict[str, Set[str]]:
+    """Compute dominators for each node in the CFG."""
+    nodes = list(cfg.block_map.keys())
+    start_node = nodes[0]
+    dom = {n: set(nodes) for n in nodes}
+    dom[start_node] = {start_node}
+    changed = True
+    while changed:
+        changed = False
+        for n in nodes:
+            if n == start_node:
+                continue
+            preds = cfg.predecessors[n]
+            if not preds:
+                continue
+            new_dom = set([n]).intersection(*[dom[p] for p in preds])
+            if new_dom != dom[n]:
+                dom[n] = new_dom
+                changed = True
+    return dom
 
-    for block in cfg.block_map:
-        for successor in cfg.successors[block]:
-            # Check for back edges indicating loops, exclude edges to .end
-            if (
-                successor in dominators[block] and successor != ".end"
-            ):  # Back edge found, identifying a loop
-                loop_header = successor
-                loop_blocks = find_loop_blocks(cfg, block, loop_header)
 
-                # Ensure that the loop header dominates all blocks in the loop and has only one entry
-                if all(
-                    loop_header in dominators[loop_block] for loop_block in loop_blocks
-                ) and is_single_entry(cfg, loop_header, loop_blocks):
-                    loops[loop_header] = loop_blocks
+def find_back_edges(
+    cfg: ControlFlowGraph, dominators: Dict[str, Set[str]]
+) -> List[Tuple[str, str]]:
+    """Find back edges in the CFG."""
+    back_edges = []
+    for n in cfg.block_map:
+        for succ in cfg.successors[n]:
+            if succ in dominators[n]:
+                back_edges.append((n, succ))
+    return back_edges
 
+
+def find_natural_loops(
+    cfg: ControlFlowGraph, back_edges: List[Tuple[str, str]]
+) -> List[Tuple[str, Set[str]]]:
+    """Identify natural loops in the CFG."""
+    loops = []
+    for n, m in back_edges:
+        loop_nodes = set()
+        stack = [n]
+        while stack:
+            node = stack.pop()
+            if node not in loop_nodes:
+                loop_nodes.add(node)
+                stack.extend(cfg.predecessors[node])
+        loops.append((m, loop_nodes))
     return loops
 
 
-def find_loop_blocks(cfg, block, loop_header):
-    """
-    Find all blocks that form the loop, starting from a back edge (block -> loop_header).
-    Traverse backward from block to include all blocks in the loop.
-    """
-    loop_blocks = set()
-    work_list = [block]
+def create_preheaders(cfg: ControlFlowGraph, loops: List[Tuple[str, Set[str]]]):
+    """Create preheaders for loops."""
+    for header, loop_nodes in loops:
+        preds = cfg.predecessors[header]
+        loop_preds = [p for p in preds if p in loop_nodes]
+        non_loop_preds = [p for p in preds if p not in loop_nodes]
+        preheader_name = f"{header}_preheader"
+        # Create preheader block
+        cfg.block_map[preheader_name] = []
+        cfg.predecessors[preheader_name] = non_loop_preds
+        cfg.successors[preheader_name] = [header]
+        # Update predecessors of header
+        cfg.predecessors[header] = loop_preds + [preheader_name]
+        # Redirect edges to preheader
+        for p in non_loop_preds:
+            cfg.successors[p] = [
+                preheader_name if s == header else s for s in cfg.successors[p]
+            ]
+            # Update jumps in instructions
+            block = cfg.block_map[p]
+            if block:
+                instr = block[-1]
+                if "op" in instr and instr["op"] in ["jmp", "br"]:
+                    instr["labels"] = [
+                        preheader_name if l == header else l for l in instr["labels"]
+                    ]
+        # Handle case when all predecessors are in the loop
+        if not non_loop_preds:
+            # Preheader predecessors are loop predecessors
+            cfg.predecessors[preheader_name] = loop_preds
+            # Remove header from successors of loop predecessors
+            for p in loop_preds:
+                cfg.successors[p] = [
+                    s if s != header else preheader_name for s in cfg.successors[p]
+                ]
+                # Update jumps in instructions
+                block = cfg.block_map[p]
+                if block:
+                    instr = block[-1]
+                    if "op" in instr and instr["op"] in ["jmp", "br"]:
+                        instr["labels"] = [
+                            preheader_name if l == header else l
+                            for l in instr["labels"]
+                        ]
+            # Update header's predecessors to only be the preheader (back edges come from within the loop)
+            cfg.predecessors[header] = [preheader_name]
+            # Update preheader's successors
+            cfg.successors[preheader_name] = [header]
 
-    while work_list:
-        current_block = work_list.pop()
-        if current_block not in loop_blocks:
-            loop_blocks.add(current_block)
-            for pred in cfg.predecessors[current_block]:
-                if pred != loop_header:
-                    work_list.append(pred)
 
-    return loop_blocks
-
-
-def is_single_entry(cfg, loop_header, loop_blocks):
-    """
-    Ensure that the loop has a single entry point (loop_header).
-    There should be no other edges entering the loop from outside.
-    """
-    for block in loop_blocks:
-        for pred in cfg.predecessors[block]:
-            if pred not in loop_blocks and block != loop_header:
-                return False
+def is_loop_invariant(instr, loop_defs, invariant_vars, outside_vars) -> bool:
+    """Check if an instruction is loop-invariant."""
+    if "dest" not in instr or "op" not in instr:
+        return False
+    if instr["op"] in SIDE_EFFECT_OPS:
+        return False
+    args = instr.get("args", [])
+    for arg in args:
+        if arg in loop_defs and arg not in invariant_vars:
+            return False
     return True
 
 
-def find_loop_invariants(cfg, loop_header, loop_blocks):
-    """
-    Identify loop-invariant instructions in the loop.
-    An instruction is loop-invariant if all of its operands are defined outside the loop
-    or by other loop-invariant instructions.
-    """
-    loop_invariants = []
-    invariants_set = set()
+def perform_licm_on_function(func: Dict):
+    """Perform LICM on a single function."""
+    cfg = construct_cfg(func["instrs"])
+    dominators = compute_dominators(cfg)
+    back_edges = find_back_edges(cfg, dominators)
+    loops = find_natural_loops(cfg, back_edges)
+    create_preheaders(cfg, loops)
 
-    for block_label in loop_blocks:
-        for instr in cfg.block_map[block_label]:
-            # Ensure branch conditions or terminator ops are not hoisted
-            if instr["op"] in TERMINATOR_OPS:
-                continue
-            if "dest" in instr:
-                if all(
-                    is_invariant_operand(cfg, loop_blocks, arg, invariants_set)
-                    for arg in instr.get("args", [])
-                ):
-                    loop_invariants.append((block_label, instr))
-                    invariants_set.add(instr["dest"])
+    for header, loop_nodes in loops:
+        # Variables defined outside the loop
+        outside_vars = set()
+        loop_vars = set()
+        for block_name in cfg.block_map:
+            block = cfg.block_map[block_name]
+            for instr in block:
+                if "dest" in instr:
+                    if block_name in loop_nodes:
+                        loop_vars.add(instr["dest"])
+                    else:
+                        outside_vars.add(instr["dest"])
+        invariant_instrs = []
+        invariant_vars = set()
+        changed = True
+        while changed:
+            changed = False
+            for block_name in loop_nodes:
+                block = cfg.block_map[block_name]
+                for instr in block:
+                    if instr in invariant_instrs:
+                        continue
+                    if is_loop_invariant(
+                        instr, loop_vars, invariant_vars, outside_vars
+                    ):
+                        invariant_instrs.append(instr)
+                        invariant_vars.add(instr["dest"])
+                        changed = True
+        # Remove invariant instructions from loop
+        for block_name in loop_nodes:
+            block = cfg.block_map[block_name]
+            cfg.block_map[block_name] = [
+                instr for instr in block if instr not in invariant_instrs
+            ]
+        # Insert invariant instructions into preheader
+        preheader_name = f"{header}_preheader"
+        cfg.block_map[preheader_name].extend(invariant_instrs)
 
-    return loop_invariants
-
-
-def is_invariant_operand(cfg, loop_blocks, operand, invariants_set):
-    """
-    Check if an operand is loop-invariant:
-    - It is defined outside the loop
-    - It is defined by an instruction that is already known to be loop-invariant
-    """
-    for block in loop_blocks:
-        for instr in cfg.block_map[block]:
-            if "dest" in instr and instr["dest"] == operand:
-                return False
-    return operand in invariants_set or operand not in flatten(
-        cfg.block_map[block] for block in loop_blocks
-    )
-
-
-def hoist_invariants(cfg, loop_header, loop_invariants):
-    """
-    Hoist the loop-invariant instructions to a preheader block.
-    The preheader block is executed once before the loop starts.
-    """
-    # Create a new preheader block
-    preheader_label = f"{loop_header}_preheader"
-    preheader_block = []
-
-    # Move loop-invariant instructions to the preheader
-    for block_label, instr in loop_invariants:
-        cfg.block_map[block_label].remove(instr)
-        preheader_block.append(instr)
-
-    # Insert the preheader block just before the loop header
-    cfg.block_map[preheader_label] = preheader_block
-    for pred in cfg.predecessors[loop_header]:
-        cfg.successors[pred].remove(loop_header)
-        cfg.successors[pred].append(preheader_label)
-    cfg.successors[preheader_label] = [loop_header]
+    # Update the function's instructions
+    func["instrs"] = reassemble(cfg)
 
 
-def to_instr_list(cfg):
-    """
-    Converts the control flow graph back into a linear list of instructions, suitable for emitting in JSON form.
-    Each block's label is preserved, and instructions are flattened.
-    """
-    instr_list = []
-    for block_label, block_instrs in cfg.block_map.items():
-        instr_list.append({"label": block_label})
-        instr_list.extend(block_instrs)
-    return instr_list
+def perform_licm(prog: Dict):
+    """Perform LICM on all functions in a Bril program."""
+    for func in prog["functions"]:
+        perform_licm_on_function(func)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Reads from a program from `prog.json` and starts pdb at inserted lines.",
-    )
-    parser.add_argument(
-        "--turnt",
-        action="store_true",
-        help="Instead of emitting bril, emits turnt formatting",
-    )
-    args = parser.parse_args()
-    prog = load_bril()
-    # do something
-    for f in prog["functions"]:
-        f["instrs"] = loop_invariant_code_motion(f["instrs"])
-
-    emit_bril(prog)
+    bril_prog = load_bril()
+    perform_licm(bril_prog)
+    emit_bril(bril_prog)
