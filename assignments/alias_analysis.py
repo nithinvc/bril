@@ -18,9 +18,10 @@ def alias_analysis(prog, alias_analysis_type):
     # State: var -> set of memory locations
 
     # Meet func: union for each variable's memory locations
+    # NOTE: We actually have no way of producing the line number since we are working on a block level.
+    # As an alterantive, we instead use {block_name}.{line_number} since the block name is unique. The provides a "local" line number.
 
     # Transfer function for each instruction
-
     def transfer_func(in_facts, block):
         # alloc
 

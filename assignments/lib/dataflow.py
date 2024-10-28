@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterator, List, Literal
+from typing import Any, Callable, Dict, Iterator, List, Literal, Optional
 
 from lib.types import ControlFlowGraph
 
@@ -10,7 +10,7 @@ Empty_Fact_Fn_T = Callable[[], Fact_T]
 # Block is a list of instrs
 Block_T = List[Dict]
 # Transfer function - takes in the facts from the beginning / end of the block, the block, and computes the new facts
-Transfer_fn_T = Callable[[Fact_T, Block_T], Fact_T]
+Transfer_fn_T = Callable[[Fact_T, Block_T, Optional[bool]], Fact_T]
 # Meet / join function should take in a list of facts and return a single fact that represents the meet / join of all the facts
 Meet_fn_T = Callable[[Iterator[Fact_T]], Fact_T]
 # Given two facts, return True if they are the same
@@ -24,6 +24,7 @@ def forward_data_flow(
     transfer_fn: Transfer_fn_T,
     meet_fn: Meet_fn_T,
     fact_equality_checker: Fact_Equality_Checker_T,
+    include_block_name: bool = False,
 ):
     # Initialize original facts
     in_facts = defaultdict(empty_fact_fn)
@@ -40,7 +41,10 @@ def forward_data_flow(
         )
 
         # Compute the new fact
-        new_out_fact = transfer_fn(in_facts[block_key], block)
+        args = [in_facts[block_key], block]
+        if include_block_name:
+            args = [in_facts[block_key], block, block_key]
+        new_out_fact = transfer_fn(*args)
         # The fact is different than what we have
         # Add to worklist and update out[block]
         if not fact_equality_checker(new_out_fact, out_facts[block_key]):
@@ -55,6 +59,7 @@ def backward_data_flow(
     transfer_fn: Transfer_fn_T,
     meet_fn: Meet_fn_T,
     fact_equality_checker: Fact_Equality_Checker_T,
+    include_block_name: bool = False,
 ):
     # Initialize original facts
     in_facts = defaultdict(empty_fact_fn)
@@ -75,7 +80,10 @@ def backward_data_flow(
         )
 
         # Now compute the new in fact from the out_fact and block
-        new_in_fact = transfer_fn(out_facts[block_key], block)
+        args = [out_facts[block_key], block]
+        if include_block_name:
+            args = [out_facts[block_key], block, block_key]
+        new_in_fact = transfer_fn(*args)
         # Check if the new in fact is different old one
         if not fact_equality_checker(new_in_fact, in_facts[block_key]):
             in_facts[block_key] = new_in_fact
@@ -91,6 +99,7 @@ def solve_dataflow(
     meet_fn: Meet_fn_T,
     fact_equality_checker: Fact_Equality_Checker_T,
     mode: Literal["forward", "backward"],
+    include_block_name: bool = False,
 ):
     """
     Solve the dataflow problem.
@@ -101,14 +110,25 @@ def solve_dataflow(
         meet_fn (Meet_fn_T): Callable that takes in an iterable of facts and joins / meets them.
         fact_equality_checker (Fact_Equality_Checker_T): Callable that returns true if two facts are equivalent
         mode (string): Either 'forward' or 'backward'.
+        include_block_name (bool): If true, the block name will be passed in as an argument to the transfer function. Default is False.
     """
     if mode == "forward":
         return forward_data_flow(
-            cfg, empty_fact_fn, transfer_fn, meet_fn, fact_equality_checker
+            cfg,
+            empty_fact_fn,
+            transfer_fn,
+            meet_fn,
+            fact_equality_checker,
+            include_block_name=include_block_name,
         )
     elif mode == "backward":
         return backward_data_flow(
-            cfg, empty_fact_fn, transfer_fn, meet_fn, fact_equality_checker
+            cfg,
+            empty_fact_fn,
+            transfer_fn,
+            meet_fn,
+            fact_equality_checker,
+            include_block_name=include_block_name,
         )
     else:
         raise ValueError("Mode should be either 'forward' or 'backward'")
