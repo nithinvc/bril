@@ -1,0 +1,15 @@
+# ARGS: 10
+@main(input: int) {
+  zero: int = const 0;
+  one: int = const 1;
+  neg_one: int = const -1;
+  vals: ptr<int> = alloc one;
+  store vals zero;
+  store vals zero;
+  store vals input;
+  store vals zero;
+  tmp: int = load vals;
+  store vals input;
+  free vals;
+  ret;
+}

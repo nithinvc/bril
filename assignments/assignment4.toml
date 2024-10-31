@@ -1,18 +1,27 @@
 # which benchmarks to run
-benchmarks = '../benchmarks/**/*.bril'
+benchmarks = '../benchmarks/mem/*.bril'
 # how to extract the performance metric from stderr
 extract = 'total_dyn_inst: (\d+)'
 
 [runs.baseline]
 pipeline = [
   "bril2json",
+  "python3 baseline.py",
   "brili -p {args}"
 ]
 
-[runs.dead_store_analysis]
+[runs.constant_prop]
+pipeline = [
+  "bril2json",
+  "python3 constant_folding.py",
+  "python3 global_liveness.py",
+  "brili -p {args}"
+]
+
+[runs.dead_store_elimination]
 pipeline = [
     "bril2json",
-    "python3 alias_analysis.py --dsa",
+    "python3 alias_analysis.py --dse",
     "brili -p {args}"
 ]
 
@@ -37,3 +46,11 @@ pipeline = [
     "brili -p {args}"
 ]
 
+[runs.full_optimization]
+pipeline = [
+    "bril2json",
+    "python3 constant_folding.py",
+    "python3 global_liveness.py",
+    "python3 alias_anlaysis.py --dse --rle --stf",
+    "brili -p {args}"
+]
