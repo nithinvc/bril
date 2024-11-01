@@ -17,28 +17,33 @@ def dead_store_elimination(prog: dict, points_to):
     optimized_blocks = {}
     for block_name, block in cfg.block_map.items():
         # keep track of stores
-        prev_stores = defaultdict(lambda: False)
+        prev_mem_locations = defaultdict(lambda: False)
+        prev_stores = set()
         optimized_instrs = []
         block_points_to = points_to.get(block_name, {})
         for instr in reversed(block):
-            dest = instr.get("dest", None)
             args = instr.get("args", [])
             op = instr.get("op", None)
 
             if op == "store":
                 ptr = args[0]
-                val = args[1]
                 memory_locations = block_points_to.get(ptr, set())
-                # We check every memory location, if any of them are used, we can't remove the store
-                remove = True
-                for loc in memory_locations:
-                    remove = remove and prev_stores[loc]
-                # If there is ALL in the memory locations, we can't remove the store
-                if remove and "ALL" not in memory_locations:
-                    continue
-                # Otherwise, mark each memory location as being touched and initialized
-                for loc in memory_locations:
-                    prev_stores[loc] = True
+                # Check if this store has been done before
+                if ptr not in prev_stores:
+                    # This is the first store, so add it to the set and mark the memory locations as potentially touched
+                    prev_stores.add(ptr)
+                    for loc in memory_locations:
+                        prev_mem_locations[loc] = True
+
+                else:
+                    # This is not the first store, so we can remove it if the memory locations are not touched
+                    remove = True
+                    # We check every memory location, if any of them are potentially used, we can not remove this store
+                    for loc in memory_locations:
+                        remove = remove and prev_mem_locations[loc]
+                    # If there is ALL in the memory locations, we can't remove the store
+                    if remove and "ALL" not in memory_locations:
+                        continue
             else:
                 if op == "load":
                     # load is the only other one that can touch memory locations
@@ -46,13 +51,20 @@ def dead_store_elimination(prog: dict, points_to):
                     # false means we can not remove the instr
                     ptr = args[0]
                     for loc in block_points_to.get(ptr, set()):
-                        prev_stores[loc] = False
+                        prev_mem_locations[loc] = False
+                        # We remove this pointer from the store set as a potentially optimization
+                        if ptr in prev_stores:
+                            prev_stores.remove(ptr)
                 elif op == "ptradd" or op == "id":
                     # We need to mark the mem location of the ptr as dirty
                     ptr = args[0]
                     for loc in block_points_to.get(ptr, set()):
-                        prev_stores[loc] = False
-                # Else, add the instruction
+                        prev_mem_locations[loc] = False
+                    # Again, if the ptr was previously stored to, we need to reset the store set
+                    if ptr in prev_stores:
+                        prev_stores.remove(ptr)
+            # Else, add the instruction
+            # Continue is the only case where we skip an instruction
 
             optimized_instrs.append(instr)
         optimized_blocks[block_name] = list(reversed(optimized_instrs))

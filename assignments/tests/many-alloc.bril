@@ -1,0 +1,51 @@
+@main() {
+  zero: int = const 0;
+  one: int = const 1;
+  two: int = const 2;
+  neg_one: int = const -1;
+  # Create 5 different allocs
+  vals: ptr<int> = alloc one;
+  valstwo: ptr<int> = alloc one;
+  valsthree: ptr<int> = alloc one;
+  valsfour: ptr<int> = alloc one;
+  valsfive: ptr<int> = alloc one;
+  offset: int = const 0;
+  # initialize
+  store vals one;
+  store valstwo zero;
+  store valsthree neg_one;
+  store valsfour one;
+  store valsfive two;
+
+  # Loop
+  size: int = const 5;
+  i: int = const 0;
+.loop_cond:
+  cond: bool = lt i size;
+  br cond .loop_body .loop_exit;
+.loop_body:
+  # Branch condition 
+  # if i is zero, ptr = vals
+  # if i is not zero, ptr = valstwo
+  equalszero: bool = eq i zero;
+  br equalszero .if .else;
+.if:
+  ptr: ptr<int> = id vals;
+  i: int = add i one;
+  jmp .loop_cond;
+.else:
+  ptr: ptr<int> = ptradd valstwo offset;
+  i: int = add i one;
+  jmp .loop_cond;
+.loop_exit:
+  # This should NOT be a dead store
+  store vals zero;
+  store ptr one;
+  # Free allocs
+  free vals;
+  free valstwo;
+  free valsthree;
+  free valsfour;
+  free valsfive;
+  ret;
+}
