@@ -24,33 +24,3 @@ pipeline = [
     "python3 alias_analysis.py --dse",
     "brili -p {args}"
 ]
-
-[runs.store_to_forward]
-pipeline = [
-    "bril2json",
-    "python3 alias_analysis.py --stf",
-    "brili -p {args}"
-]
-
-[runs.redundant_load_elimination]
-pipeline = [
-    "bril2json",
-    "python3 alias_analysis.py --rle",
-    "brili -p {args}"
-]
-
-[runs.alias_full]
-pipeline = [
-    "bril2json",
-    "python3 alias_analysis.py --dse --rle --stf",
-    "brili -p {args}"
-]
-
-[runs.full_optimization]
-pipeline = [
-    "bril2json",
-    "python3 constant_folding.py",
-    "python3 global_liveness.py",
-    "python3 alias_anlaysis.py --dse --rle --stf",
-    "brili -p {args}"
-]
