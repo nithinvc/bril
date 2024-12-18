@@ -1,0 +1,27 @@
+@mod(r: int, s: int): int {
+  v0: int = id r;
+  v1: int = id r;
+  v2: int = id s;
+  v3: int = div v1 v2;
+  v4: int = id s;
+  v5: int = mul v3 v4;
+  v6: int = sub v0 v5;
+  result: int = id v6;
+  v7: int = id result;
+  ret v7;
+}
+# ARGS: 3 6
+@main(v1: int, v2: int) {
+  zero: int = const 0;
+.loop:
+  iszero: bool = eq v2 zero;
+  br iszero .done .body;
+.body:
+  v4: int = id v2;
+  v2: int = call @mod v1 v2;
+  v1: int = id v4;
+  jmp .loop;
+.done:
+  print v1;
+}
+

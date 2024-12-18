@@ -1,0 +1,103 @@
+{
+  "functions": [
+    {
+      "instrs": [
+        {
+          "dest": "five",
+          "op": "const",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "dest": "x",
+          "op": "const",
+          "type": "int",
+          "value": 8
+        },
+        {
+          "args": [
+            "five",
+            "five"
+          ],
+          "dest": "equality",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "equality"
+          ],
+          "labels": [
+            "compute",
+            "do_nothing"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "compute"
+        },
+        {
+          "args": [
+            "x",
+            "five"
+          ],
+          "dest": "y",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "done"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "do_nothing"
+        },
+        {
+          "labels": [
+            "done"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        },
+        {
+          "args": [
+            "x",
+            "five"
+          ],
+          "dest": "z",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "x",
+            "z"
+          ],
+          "dest": "r",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "x",
+            "five"
+          ],
+          "dest": "b",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "z"
+          ],
+          "op": "print"
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "functions": [
+    {
+      "args": [
+        {
+          "name": "input",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "neg_one",
+          "op": "const",
+          "type": "int",
+          "value": -1
+        },
+        {
+          "args": [
+            "one"
+          ],
+          "dest": "vals",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "vals",
+            "zero"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "vals",
+            "zero"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "vals",
+            "input"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "vals",
+            "zero"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "vals"
+          ],
+          "dest": "tmp",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "vals",
+            "input"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "vals"
+          ],
+          "op": "free"
+        },
+        {
+          "op": "ret"
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}

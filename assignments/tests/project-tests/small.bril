@@ -1,0 +1,18 @@
+# Small test case which has a branching if statement
+@main() {
+.entry:
+  b: int = const 1;
+  c: int = const 4;
+  cond: bool = le b c;
+  br cond .if .else;
+.if:
+  g: int = const 0;
+  z: int = const 0;
+  jmp .done;
+.else:
+  x: int = add b c;
+  jmp .done;
+.done:
+  y: int = add b c;
+  print cond y;
+}

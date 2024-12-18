@@ -1,0 +1,18 @@
+@main() {
+  x: int = const 42;         
+  y: int = const 7;         
+  a: int = id x;           
+  b: int = id y;          
+  z: int = const 3;      
+  y: int = add x y;
+  print y;                
+  equality: bool = eq y y;
+  br equality .then_block .else_block;
+.then_block:
+  c: int = add a b;
+  print c;
+  jmp .done;
+.else_block:
+  d: int = const 0;
+.done:
+}

@@ -1,0 +1,12 @@
+# Function that counts down from 1000 = iter
+@main() {
+  two:int = const 2; 
+  iter:int = const 1000;
+.loop:
+  one:int = const 1;
+  iter: int = sub iter one;
+  cond: bool = ge iter two;
+  br cond .loop .done;
+.done:
+  print iter;
+}

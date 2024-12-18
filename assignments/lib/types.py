@@ -29,3 +29,41 @@ RESOLVABLE_OPS = {
     "and": lambda x, y: x and y,
     "or": lambda x, y: x or y,
 }
+
+
+# Define side-effect operations that should not be moved
+SIDE_EFFECT_OPS = {"print", "call", "store", "ret"}
+
+
+# Possible expressions we consider
+EXPRESSIONS = {
+    "add",
+    "mul",
+    "sub",
+    "div",
+    "eq",
+    "lt",
+    "gt",
+    "le",
+    "ge",
+    "not",
+    "and",
+    "or",
+}
+
+
+# Number of args per expression
+NUM_ARGS = {
+    "add": 2,
+    "mul": 2,
+    "sub": 2,
+    "div": 2,
+    "eq": 2,
+    "lt": 2,
+    "gt": 2,
+    "le": 2,
+    "ge": 2,
+    "not": 1,
+    "and": 2,
+    "or": 2,
+}

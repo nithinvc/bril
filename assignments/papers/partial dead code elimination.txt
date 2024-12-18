@@ -1,0 +1,53 @@
+Partial Dead Code Elimination by Knoop, Ruthing, and Steffen
+
+
+Important Notes:
+- "Partially dead code": code which is only dead on some program paths.
+- Proposed algorithm is optimal in that further partially dead code can not be
+    eliminated without changing the branching structure or semantics of the
+    program.
+- Goal: Move partially dead statements as far as possible in the direction
+    of the control flow while maintaining the program semantics.
+- The resulting program will always be as good as the original program since it
+    is strictly a reduction in the set of statements.
+- Analysis is restricted to programs where every critical edge has been split
+    by inserting a synthetic node.
+
+Conceptual Notes:
+- pDCE stands for any seq of 1. assignmnet sinkings and 2. dead code eliminations
+- Assignment Sinking:
+    + Blocked by any instr that modifies the RHS, uses the LHS, or modifies LHS.
+- Dead Code / Dead Assignments / Assignment Elimination
+    + Occurance of an assignment pattern is dead if LHS variable is dead.
+    + Alternative characterization: Faint. An assignment is faint if LHS is faint.
+        Every path from basic block n to end instr e, every LHS occurance of LHS is
+        proceeded by a modification to LHS or is in an assignment whose LHS is also faint.
+    + Technically, faint or DCE may change the semantics of a program (in a positive way
+        by possibly reducing the potential of run-time errors).
+- There is a notion of G' being "better" than G''. There is also then a notion of optimality.
+- They prove that there exists an optimal program, but they don't prove uniqueness.
+    + They do however prove that there exists a canonical representation.
+- Multiple "second-order" effects that need to be captured from dead code elimination.
+    + Sinking elimination - sinks open up new elims
+    + Sinking sinking effects - sinks open up new sinks
+    + elim sinking - eliminations open new sinks
+    + elim elim - eliminations create eliminations
+
+Algorithm:
+- Two main processes which are repeated till program stability.
+    1. dce for the limination of dead assignmnets, controlled by a dead variable analysis
+    2. ask: for assginment sinking - controlled by a delayability analysis 
+
+DCE:
+- Use backwards directed bit-vector DF
+- Faint version doesn't have a bit vector form, but still solvable? There is some nuance on pg 7.
+- After DF, eliminate all assignmnets whose left-hand side vars are dead immediately after them.
+
+Sinking of Assignments:
+- Based on delayability analysis. Answers: How far a hoisted computation can 
+    be sunk from its earliest initialization point in order to minimize the 
+    lifetimes of temporaries.
+- Also based on a bit-vector data flow analysis.
+- There is then an insertion step: where each basic block is then processed.
+
+Termination: After both processes make no more changes.

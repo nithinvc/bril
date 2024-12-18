@@ -8,6 +8,11 @@ hypothesis_*
 __pycache__
 .vscode
 
+# Intermediate json files for testing
+assignments/*.json
+# interference graph visualizations
+assignments/graphs/
+
 **/*.o
 .DS_Store
 

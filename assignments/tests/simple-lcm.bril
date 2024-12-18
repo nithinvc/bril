@@ -1,0 +1,29 @@
+@main() {
+  x: int = const 5;
+  y: int = const 10;
+
+  eq1: bool = eq x y;
+  br eq1 .then_block .else_block;
+
+.then_block:
+  a: int = add x y;
+  eq2: bool = eq x y;
+  br eq2 .then_block2 .else_block2;
+
+.then_block2:
+  c: int = add x y;
+  print c;
+  jmp .done;
+
+.else_block2:
+  d: int = add x y;
+  print d;
+  jmp .done;
+
+.else_block:
+  b: int = add x y;
+  print b;
+  jmp .done;
+
+.done:
+}

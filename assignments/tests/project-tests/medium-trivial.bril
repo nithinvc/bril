@@ -1,0 +1,51 @@
+# Program with has high arithmetic density but with large register pressure
+# Many live vars that need to be kept track of but LCM can reduce
+@main() {
+  a0: int = const 10;
+  a1: int = const 20;
+  a2: int = const 2;
+  a3: int = const 3;
+  a4: int = const 50;
+  a5: int = const 5;
+  a6: int = const 100;
+  a7: int = const 200;
+  a8: int = const 1000;
+  a9: int = const 999;
+
+  limit: int = const 5;
+  i: int = const 0;
+  one: int = const 1;
+
+  cond: bool = lt i limit;
+  br cond .loop .done;
+
+.loop:
+  # Redundant computations:
+  t1: int = add a0 a1;
+  t2: int = add a0 a1;
+  t3: int = mul a2 a3;
+  t4: int = mul a2 a3;
+  t5: int = sub a4 a5;
+  t6: int = sub a4 a5;
+
+  u1: int = add t1 t3;
+  u2: int = add t2 t4;
+  u3: int = add t5 t6;
+
+  final1: int = add u1 u2;
+  final2: int = add final1 u3;
+
+  a0: int = id final2;
+  a1: int = id u1;
+  a2: int = id u2;
+  a3: int = id u3;
+
+  i: int = add i one;
+
+  cond: bool = lt i limit;
+  br cond .loop .done;
+
+.done:
+
+  print a0;
+}

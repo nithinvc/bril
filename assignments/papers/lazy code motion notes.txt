@@ -1,0 +1,9 @@
+Lazy Code Motion by Knoop, Ruthing, and Steffen.
+
+Important Notes:
+- Initialize as late as possible while maintaining computational optimality.
+- Only operates on control flow graphs with no critial edges. 
+    + "Every edge leading to a node with more than one predecessor has been 
+        split by inserting a synthetic node."
+- Notes from when we discussed in class are still relevant.
+- Still don't understand some of the minute details? But should look at the relevant slides.

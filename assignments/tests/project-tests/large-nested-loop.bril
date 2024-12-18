@@ -1,0 +1,37 @@
+# Nested loop which computes some sums and products
+@main() {
+  n: int = const 1000;
+  m: int = const 500;
+  a: int = const 2;
+  b: int = const 3;
+
+  i: int = const 0;
+
+.outer_cond:
+  cond_outer: bool = lt i n;
+  br cond_outer .outer_body .done;
+.outer_body:
+  j: int = const 0;
+.inner_cond:
+  cond_inner: bool = lt j m;
+  br cond_inner .inner_body .outer_inc;
+.inner_body:
+  sum: int = add a b;
+  prod: int = mul a b;
+  sum2: int = add a b;
+
+  tmp: int = add sum sum2;
+  result: int = add prod tmp;
+
+  one: int = const 1;
+  j: int = add j one;
+  jmp .inner_cond;
+
+.outer_inc:
+  i: int = add i one;
+  jmp .outer_cond;
+
+.done:
+  print sum prod sum2 result;
+
+}

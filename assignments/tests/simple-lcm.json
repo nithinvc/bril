@@ -1,0 +1,146 @@
+{
+  "functions": [
+    {
+      "instrs": [
+        {
+          "dest": "x",
+          "op": "const",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "dest": "y",
+          "op": "const",
+          "type": "int",
+          "value": 10
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "eq1",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "eq1"
+          ],
+          "labels": [
+            "then_block",
+            "else_block"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "then_block"
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "a",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "eq2",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "eq2"
+          ],
+          "labels": [
+            "then_block2",
+            "else_block2"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "then_block2"
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "c",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "c"
+          ],
+          "op": "print"
+        },
+        {
+          "labels": [
+            "done"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "else_block2"
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "d",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "d"
+          ],
+          "op": "print"
+        },
+        {
+          "labels": [
+            "done"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "else_block"
+        },
+        {
+          "args": [
+            "x",
+            "y"
+          ],
+          "dest": "b",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "b"
+          ],
+          "op": "print"
+        },
+        {
+          "labels": [
+            "done"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}

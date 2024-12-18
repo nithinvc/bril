@@ -1,0 +1,16 @@
+@main() {
+  five: int = const 5;
+  x: int = const 8;
+  equality: bool = eq five five;
+  br equality .compute .do_nothing;
+.compute:
+  y: int = add x five;
+  jmp .done;
+.do_nothing:
+  jmp .done;
+.done:
+  z: int = add x five;
+  r: int = add x z;
+  b: int = add x five;
+  print z;
+}
